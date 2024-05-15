@@ -10,14 +10,15 @@ var checkUserAuth = async (req, res, next) => {
       token = authorization.split(" ")[1];
       // verify token with the token got at login
       const { userId } = jwt.verify(token, process.env.jwt_secret_key);
-      //get user from token 
+      //get user from token
       req.user = await LoginModel.findById(userId).select("-password");
       next();
     } catch (error) {
-      console.log(error);
+      console.log(error.message);
       errorResponse(res, "Unauthorized User", 401);
     }
   }
+  
 
   if (!token) {
     errorResponse(res, "Unauthorized User, No Token", 401);
@@ -25,4 +26,3 @@ var checkUserAuth = async (req, res, next) => {
 };
 
 module.exports = checkUserAuth;
-
