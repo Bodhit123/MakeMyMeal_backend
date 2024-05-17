@@ -14,7 +14,7 @@ const BookingSchema = new mongoose.Schema({
 
   isWeekend: {
     type: Boolean,
-    required: true,
+    required: false,
   },
   Dates: {
     startDate: {

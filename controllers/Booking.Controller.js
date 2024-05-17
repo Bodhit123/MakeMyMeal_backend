@@ -2,28 +2,25 @@ const { successResponse, errorResponse } = require("../utils/apiResponse");
 const BookingModel = require("../models/booking.model");
 const moment = require("moment");
 
-exports.getBookings = async (req, res) => {
+exports.getEmployeeBookings = async (req, res) => {
   const { dept, month, year } = req.query;
-  const { page, perPage } = req.params;
-
+  const perPage = 6;
   const query = {};
 
+  query["BookingPerson"] = "Employee"
   if (year) {
-    const startOfYear = moment(year, "YYYY");
+    const Year = moment(year, "YYYY");
     query["Dates.startDate"] = {
-      $gte: startOfYear.startOf("year").toDate(),
-      $lte: startOfYear.endOf("year").toDate(),
+      $gte: Year.startOf("year").toDate(),
+      $lte: Year.endOf("year").toDate(),
     };
     if (month) {
-      const startOfMonth = moment(`${year}-${month}`, "YYYY-MMMM");
-      query["Dates.startDate"].$gte = startOfMonth.startOf("month").toDate();
-      query["Dates.startDate"].$lte = startOfMonth.endOf("month").toDate();
+      const Month = moment(`${year}-${month}`, "YYYY-MMMM");
+      query["Dates.startDate"].$gte = Month.startOf("month").toDate();
+      query["Dates.startDate"].$lte = Month.endOf("month").toDate();
     }
   }
-
-  const pageNumber = parseInt(page) || 1;
-  const resultsPerPage = parseInt(perPage) || 5;
-
+  console.log(query,req.query);
   try {
     let pipeline = [
       {
@@ -39,67 +36,118 @@ exports.getBookings = async (req, res) => {
       },
     ];
 
-    if (dept) {
+    if (dept && dept !== "All") {
       pipeline.push({
         $match: { "EmployeeDetails.dept_name": dept },
       });
     }
 
-    pipeline.push(
-      {
-        $skip: (pageNumber - 1) * resultsPerPage,
-      },
-      {
-        $limit: resultsPerPage,
-      }
-    );
+    pipeline.push({
+      $limit: perPage * 5,
+    });
 
     const fetchedBookingResults = await BookingModel.aggregate(pipeline);
-
+    const totalResults = fetchedBookingResults.length;
     if (fetchedBookingResults.length > 0) {
       return successResponse(
         res,
-        fetchedBookingResults,
-        "Bookings retrieved successfully"
+        { totalResults, fetchedBookingResults },
+        "Bookings retrieved successfully",
+        200
       );
     } else {
       return errorResponse(res, "No data available.", 404);
     }
   } catch (error) {
-    return errorResponse(
-      res,
-      "Something went wrong while fetching bookings",
-      400
+    errorResponse(res, "Something went wrong while fetching bookings", 400);
+    console.log(error.message);
+  }
+};
+
+exports.getRiseBookings = async (req, res) => {
+  const { month, year } = req.query;
+  const perPage = 6;
+  let query = {
+    BookingPerson: "Rise",
+  };
+
+  if (year) {
+    const Year = moment(year, "YYYY");
+    query["Dates.startDate"] = {
+      $gte: Year.startOf("year").toDate(),
+      $lte: Year.endOf("year").toDate(),
+    };
+    if (month) {
+      const Month = moment(`${year}-${month}`, "YYYY-MMMM");
+      query["Dates.startDate"].$gte = Month.startOf("month").toDate();
+      query["Dates.startDate"].$lte = Month.endOf("month").toDate();
+    }
+  }
+  console.log(query);
+  console.log(req.query);
+  try {
+    const fetchedBookingResults = await BookingModel.find(query).limit(
+      perPage * 5
     );
+    const totalResults = fetchedBookingResults.length;
+    if (fetchedBookingResults.length > 0) {
+      return successResponse(
+        res,
+        { totalResults, fetchedBookingResults },
+        "Bookings retrieved successfully",
+        200
+      );
+    } else {
+      return errorResponse(res, "No data available.", 404);
+    }
+  } catch (error) {
+    errorResponse(res, "Something went wrong while fetching bookings", 400);
     console.log(error.message);
   }
 };
 
 exports.createBooking = async (req, res) => {
   try {
-    const { BookingCategory, isWeekend, Dates, MealCounts, Notes, Employees } =
-      req.body;
+    const {
+      BookingPerson,
+      BookingCategory,
+      isWeekend,
+      Dates,
+      MealCounts,
+      Notes,
+      Employees,
+    } = req.body;
 
-    // Iterate over the Employees array and add bookings for each one
-    for (const employeeId of Employees) {
-      // Create a new booking instance for the current employee
-      const bookingForEmployee = new BookingModel({
-        BookingPerson: "Employee",
+    if (BookingPerson === "Employee") {
+      // Iterate over the Employees array and add bookings for each one
+      for (const employeeId of Employees) {
+        // Create a new booking instance for the current employee
+        const bookingForEmployee = new BookingModel({
+          BookingPerson,
+          BookingCategory,
+          isWeekend,
+          Dates,
+          MealCounts,
+          Notes,
+          Employee: employeeId,
+          CreatedBy: req.user._id,
+          CreatedAt: new Date(),
+        });
+        // Save the booking for the current employee
+        await bookingForEmployee.save();
+      }
+    } else if (BookingPerson === "Rise") {
+      const model = new BookingModel({
+        BookingPerson,
         BookingCategory,
-        isWeekend,
-        Dates: {
-          startDate: startDateIST,
-          endDate: endDateIST,
-        },
+        Dates,
         MealCounts,
         Notes,
-        Employee: employeeId,
         CreatedBy: req.user._id,
         CreatedAt: new Date(),
       });
 
-      // Save the booking for the current employee
-      await bookingForEmployee.save();
+      await model.save();
     }
 
     // Respond with success message

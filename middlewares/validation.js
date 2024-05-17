@@ -1,4 +1,9 @@
-const { loginSchema, signUpSchema,employeeSchema,bookingSchema } = require("../models/schemas");
+const {
+  loginSchema,
+  signUpSchema,
+  employeeSchema,
+  bookingSchema,
+} = require("../models/schemas");
 
 const isValid = (obj, schema) => {
   return schema.validate(obj, { abortEarly: false }).error;
@@ -15,10 +20,14 @@ const authMiddleware = (schema) => (req, res, next) => {
   }
 };
 
-const BookingValidationMiddleware = authMiddleware(bookingSchema);
+const BookingEmployeeValidationMiddleware = authMiddleware(bookingSchema);
 const employeeValidationMiddleware = authMiddleware(employeeSchema);
 const signUpValidationMiddleware = authMiddleware(signUpSchema);
 const loginValidationMiddleware = authMiddleware(loginSchema);
 
-
-module.exports = {signUpValidationMiddleware,loginValidationMiddleware,employeeValidationMiddleware,BookingValidationMiddleware };
+module.exports = {
+  signUpValidationMiddleware,
+  loginValidationMiddleware,
+  employeeValidationMiddleware,
+  BookingEmployeeValidationMiddleware
+};

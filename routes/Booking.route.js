@@ -1,9 +1,10 @@
 const express = require("express");
 const Router = express.Router();
-const { BookingValidationMiddleware} = require("../middlewares/validation");
+const { BookingEmployeeValidationMiddleware,BookingRiseValidationMiddleware} = require("../middlewares/validation");
 const BookingController = require("../controllers/Booking.Controller");
 
-Router.route("/:page/:perPage").get(BookingController.getBookings);
-Router.route("/").post(BookingValidationMiddleware,BookingController.createBooking);
+Router.route("/employee").get(BookingController.getEmployeeBookings);
+Router.route("/rise").get(BookingController.getRiseBookings);
+Router.route("/").post(BookingEmployeeValidationMiddleware,BookingController.createBooking);
 
 module.exports = Router;

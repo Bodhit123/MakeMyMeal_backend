@@ -32,18 +32,22 @@ const employeeSchema = Joi.object({
 const bookingSchema = Joi.object({
   BookingPerson: Joi.string().valid("Rise", "Employee", "Others").required(),
   BookingCategory: Joi.string().valid("Lunch", "Dinner").required(),
-  isWeekend: Joi.boolean().required(),
-  Dates: {
-    startDate: Joi.date().min(moment()).required(),
+  isWeekend: Joi.boolean().optional(),
+  Dates: Joi.object({
+    startDate: Joi.date().min(moment().startOf("day").toDate()).required(),
     endDate: Joi.date()
-      .min(Joi.ref("startDate")) // Ensure endDate is greater than startDate
-      .max(moment().add(120, "days"))
+      .min(Joi.ref("startDate"))
       .required(),
-  },
+  }).required(),
   MealCounts: Joi.number().min(1).max(90).required(),
   Notes: Joi.string().allow("").optional(),
-  Employees: Joi.array().items(Joi.string().required()),
+  Employees: Joi.when("BookingPerson", {
+    is: "Employee",
+    then: Joi.array().items(Joi.string().required()).required(),
+    otherwise: Joi.optional(),
+  }),
   CreatedBy: Joi.string().required(),
+  CreatedAt: Joi.date().required(),
 });
 
 // const emailSchema = Joi.string()
