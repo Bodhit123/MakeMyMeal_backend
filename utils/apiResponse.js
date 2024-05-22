@@ -32,6 +32,7 @@ const errorResponse = (res, message = "Error", status) => {
       statusCode: status || 500,
     };
   }
+  console.log(message)
   res.status(message.statusCode).json(message);
 };
 

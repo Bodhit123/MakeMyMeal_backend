@@ -12,6 +12,8 @@ const errorHandler = (err, req, res, next) => {
     description: err.message || "Internal Server Error",
   };
 
+  console.log(message)
+
   const statusCode = err.statusCode || 500;
   console.error(`${err.name}:`, err.message);
   errorResponse(res, message, statusCode);

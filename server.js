@@ -35,7 +35,7 @@ app.use(
 app.use(cors());
 app.use(express.json());
 app.use("/change/password", checkUserAuth, changePasswordRoute);
-app.use("/booking", checkUserAuth, bookingRoute);
+app.use("/booking",checkUserAuth, bookingRoute);
 app.use("/employee", checkUserAuth, employeeRoute);
 app.use("/login", loginValidationMiddleware, loginRoute);
 app.use("/signup", signUpValidationMiddleware, SignupRoute);

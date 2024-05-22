@@ -39,15 +39,15 @@ const bookingSchema = Joi.object({
       .min(Joi.ref("startDate"))
       .required(),
   }).required(),
-  MealCounts: Joi.number().min(1).max(90).required(),
+  MealCounts: Joi.number().min(1).max(200).required(),
   Notes: Joi.string().allow("").optional(),
   Employees: Joi.when("BookingPerson", {
     is: "Employee",
     then: Joi.array().items(Joi.string().required()).required(),
     otherwise: Joi.optional(),
   }),
-  CreatedBy: Joi.string().required(),
-  CreatedAt: Joi.date().required(),
+  CreatedBy: Joi.string().optional(),
+  CreatedAt: Joi.date().optional(),
 });
 
 // const emailSchema = Joi.string()
