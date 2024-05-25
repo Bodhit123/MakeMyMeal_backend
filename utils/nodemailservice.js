@@ -1,37 +1,67 @@
 const nodemailer = require("nodemailer");
+const { google } = require("googleapis");
 const dotenv = require("dotenv");
+const path = require("path");
 
-dotenv.config({ path: "../config/config.env" });
+dotenv.config({ path: path.join(__dirname, "../config/config.env") });
 
-const transporter = nodemailer.createTransport({
-  service:"gmail",
-  auth: {
-    user: process.env.NodeMailer_USER,
-    pass: process.env.NodeMailer_PASS
-  }
-});
+const oAuth2Client = new google.auth.OAuth2(
+  process.env.CLIENT_ID,
+  process.env.CLIENT_SECRET,
+  process.env.REDIRECT_URI
+);
+oAuth2Client.setCredentials({ refresh_token: process.env.REFRESH_TOKEN });
 
-async function Main(pass, email) {
+async function sendMail(email, pass) {
   try {
-    // Verify transporter credentials
-    await transporter.verify();
-    // Send mail with defined transport object
-    const info = await transporter.sendMail({
-      from: "dhvandarji@gmail.com", // Sender address
-      to: email, // List of receivers
-      subject: "Hello ✔",
-      html: `<b>Hey User! Here is your password for the MakeMyMeal: ${pass}</b>`,
+    const { token } = await oAuth2Client.getAccessToken();
+
+    if (!token) {
+      throw new Error("Failed to retrieve access token");
+    }
+
+    const transport = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        type: "OAuth2",
+        user: process.env.NodeMailer_USER,
+        clientId: process.env.CLIENT_ID,
+        clientSecret: process.env.CLIENT_SECRET,
+        refreshToken: process.env.REFRESH_TOKEN,
+        accessToken: token,
+      },
     });
 
-    console.log("Message sent: %s", info.messageId);
-    // Message sent: <d786aa62-4e0a-070a-47ed-0b0666549519@ethereal.email>
+    const mailOptions = {
+      from: `bodhit📮<${process.env.NodeMailer_USER}>`,
+      to: email,
+      subject: "Hello from makeMyMeal app",
+      text: "Hello from MakeMyMeal web application.",
+      html: `<b>Hey User! Here is your password for the MakeMyMeal: ${pass}</b>`,
+    };
+
+    const result = await transport.sendMail(mailOptions);
+    console.log("Email sent.....", result);
+    return result;
   } catch (error) {
-    console.error("Error sending email:", error);
-    throw error; // Rethrow the error for handling in the calling function
+    console.error("Error in sending email:", error);
+    throw error;
   }
 }
-// Main("dummyPassword", "bodhit.150410107015@gmail.com")
-//   .then(() => console.log("Email sent successfully"))
-//   .catch((error) => console.error("Failed to send email:", error));
 
-module.exports = Main;
+// const sendMail = require('./path/to/sendMail.js');
+
+// async function someFunction() {
+//   try {
+//     const email = 'hirrendarji@gmail.com';
+//     const password = 'password123';
+//     const result = await sendMail(email, password);
+//     console.log('Email sent successfully:', result);
+//   } catch (error) {
+//     console.error('Failed to send email:', error);
+//   }
+// }
+
+// someFunction();
+
+module.exports = sendMail;
