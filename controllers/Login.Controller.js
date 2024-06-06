@@ -14,11 +14,18 @@ const LoginController = async (req, res) => {
       console.log("User not found");
       return errorResponse(res, "Invalid email or password", 404);
     }
+
     // Compare passwords
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
       console.log("Password does not match");
       return errorResponse(res, "Invalid email or password", 401);
+    }
+
+    //only user with admin role can access
+    if (!user.isAdmin) {
+      console.log("Admin only can login.");
+      return errorResponse(res, "Admin Only Can Login", 409);
     }
 
     //create jwt token after user logged in successfully.
@@ -63,6 +70,7 @@ async function ChangeUserPassword(req, res) {
         "Password changed successfully",
         201
       );
+      console.log(req.user.email)
       await sendMail(req.user.email, password);
     }
   } else {

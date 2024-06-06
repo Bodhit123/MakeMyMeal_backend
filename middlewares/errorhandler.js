@@ -15,8 +15,8 @@ const errorHandler = (err, req, res, next) => {
   console.log(message)
 
   const statusCode = err.statusCode || 500;
-  console.error(`${err.name}:`, err.message);
   errorResponse(res, message, statusCode);
+  console.error(`${err.name}:`, err.message);
 };
 
 module.exports = errorHandler;

@@ -3,6 +3,7 @@ const {
   signUpSchema,
   employeeSchema,
   bookingSchema,
+  disableSchema,
 } = require("../models/schemas");
 
 const isValid = (obj, schema) => {
@@ -20,7 +21,8 @@ const authMiddleware = (schema) => (req, res, next) => {
   }
 };
 
-const BookingEmployeeValidationMiddleware = authMiddleware(bookingSchema);
+const BookingValidationMiddleware = authMiddleware(bookingSchema);
+const SettingValidationMiddleware = authMiddleware(disableSchema);
 const employeeValidationMiddleware = authMiddleware(employeeSchema);
 const signUpValidationMiddleware = authMiddleware(signUpSchema);
 const loginValidationMiddleware = authMiddleware(loginSchema);
@@ -29,5 +31,6 @@ module.exports = {
   signUpValidationMiddleware,
   loginValidationMiddleware,
   employeeValidationMiddleware,
-  BookingEmployeeValidationMiddleware
+  BookingValidationMiddleware,
+  SettingValidationMiddleware
 };

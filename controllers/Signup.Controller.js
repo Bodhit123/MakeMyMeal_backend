@@ -20,7 +20,7 @@ const SignUpController = async (req, res) => {
       email,
       password: randomPassword,
       mobile,
-      role: role.toLowerCase(), // Ensure consistent casing for role
+      role: role.toLowerCase()
     });
     // Determine if the user is an admin
     const isAdmin = role.toLowerCase() === "admin";

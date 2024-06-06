@@ -5,3 +5,5 @@ node_modules/
 config/config.env
 
 utils/moment.js
+
+Holidays.js

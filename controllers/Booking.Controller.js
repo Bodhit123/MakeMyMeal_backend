@@ -203,31 +203,6 @@ exports.deleteBooking = async (req, res) => {
   }
 };
 
-exports.updateBookingCount = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { MealCounts } = req.body; // Assuming the request body contains the MealCounts field
-
-    // Find booking if it exists
-    const booking = await BookingModel.findById(id);
-
-    if (!booking) {
-      return errorResponse(res, "Booking not found", 404);
-    }
-
-    // Update only the MealCounts field
-    booking.MealCounts = MealCounts;
-
-    // Save updates
-    await booking.save();
-
-    successResponse(res, booking, "MealCounts updated successfully", 200);
-  } catch (error) {
-    console.log(error);
-    errorResponse(res, error.message, 400);
-  }
-};
-
 exports.getTotalCounts = async (req, res) => {
   const { month, year } = req.query;
 
@@ -255,11 +230,11 @@ exports.getTotalCounts = async (req, res) => {
     const riseBookings = await BookingModel.find({
       BookingPerson: "Rise",
       ...query,
-    }).select("Dates MealCounts BookingPerson");;
+    }).select("Dates MealCounts BookingPerson");
     const othersBookings = await BookingModel.find({
       BookingPerson: "Others",
       ...query,
-    }).select("Dates MealCounts BookingPerson");;
+    }).select("Dates MealCounts BookingPerson");
 
     // Calculate the total days for each category
     let Counts = {
@@ -278,3 +253,27 @@ exports.getTotalCounts = async (req, res) => {
   }
 };
 
+exports.updateBookingCount = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { MealCounts } = req.body; // Assuming the request body contains the MealCounts field
+
+    // Find booking if it exists
+    const booking = await BookingModel.findById(id);
+
+    if (!booking) {
+      return errorResponse(res, "Booking not found", 404);
+    }
+
+    // Update only the MealCounts field
+    booking.MealCounts = MealCounts;
+
+    // Save updates
+    await booking.save();
+
+    successResponse(res, booking, "MealCounts updated successfully", 200);
+  } catch (error) {
+    console.log(error);
+    errorResponse(res, error.message, 400);
+  }
+};

@@ -15,6 +15,7 @@ oAuth2Client.setCredentials({ refresh_token: process.env.REFRESH_TOKEN });
 async function sendMail(email, pass) {
   try {
     const { token } = await oAuth2Client.getAccessToken();
+    console.log(token)
 
     if (!token) {
       throw new Error("Failed to retrieve access token");
@@ -44,8 +45,8 @@ async function sendMail(email, pass) {
     console.log("Email sent.....", result);
     return result;
   } catch (error) {
-    console.error("Error in sending email:", error);
-    throw error;
+    console.error("Error in sending email:", error.message);
+    throw error.message;
   }
 }
 

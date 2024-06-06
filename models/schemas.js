@@ -35,9 +35,7 @@ const bookingSchema = Joi.object({
   isWeekend: Joi.boolean().optional(),
   Dates: Joi.object({
     startDate: Joi.date().min(moment().startOf("day").toDate()).required(),
-    endDate: Joi.date()
-      .min(Joi.ref("startDate"))
-      .required(),
+    endDate: Joi.date().min(Joi.ref("startDate")).required(),
   }).required(),
   MealCounts: Joi.number().min(1).max(200).required(),
   Notes: Joi.string().allow("").optional(),
@@ -50,6 +48,14 @@ const bookingSchema = Joi.object({
   CreatedAt: Joi.date().optional(),
 });
 
+const disableSchema = Joi.object({
+  Dates: Joi.object({
+    startDate: Joi.date().min(moment().startOf("day").toDate()).required(),
+    endDate: Joi.date().min(Joi.ref("startDate")).required(),
+  }).required(),
+  Reason: Joi.string().min(5).max(50).required(),
+  MealType:Joi.array().items(Joi.string().required()).required()
+});
 // const emailSchema = Joi.string()
 //   .email({ minDomainSegments: 2, tlds: { allow: false } })
 //   .pattern(/rishabhsoft\.com$/);
@@ -70,7 +76,13 @@ const bookingSchema = Joi.object({
 //   console.log("is valid.");
 // }
 
-module.exports = { loginSchema, signUpSchema, employeeSchema, bookingSchema };
+module.exports = {
+  loginSchema,
+  signUpSchema,
+  employeeSchema,
+  bookingSchema,
+  disableSchema,
+};
 // const userSchema = Joi.object({
 //   //we will store id's from signup collection after the registration of users done by admin or by own(employee).
 //   id: Joi.string().required(),
