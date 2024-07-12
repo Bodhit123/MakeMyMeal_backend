@@ -24,7 +24,7 @@ exports.getEmployeeBookings = async (req, res) => {
       query["Dates.startDate"].$lte = Month.endOf("month").toDate();
     }
   }
-  console.log(query, req.query);
+
   try {
     let pipeline = [
       {
@@ -205,7 +205,7 @@ exports.deleteBooking = async (req, res) => {
 
 exports.getTotalCounts = async (req, res) => {
   const { month, year } = req.query;
-
+  console.log(month,year)
   // Initialize the query for the specified period
   let query = {};
   if (year && month) {
@@ -243,6 +243,7 @@ exports.getTotalCounts = async (req, res) => {
       TotalBufferCount: calculateTotalDays(othersBookings, true),
     };
 
+    // console.log(employeeBookings);
     // Respond with the counts
     res
       .status(200)
