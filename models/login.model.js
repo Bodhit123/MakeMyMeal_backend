@@ -15,6 +15,10 @@ const loginSchema = new mongoose.Schema({
     type: Boolean,
     required: true,
   },
+  refreshToken: {
+    type: String,
+    required: false,
+  },
 });
 
 // Create a Login model using the schema

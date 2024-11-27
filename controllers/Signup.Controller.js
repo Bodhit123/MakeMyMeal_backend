@@ -20,21 +20,18 @@ const SignUpController = async (req, res) => {
       email,
       password: randomPassword,
       mobile,
-      role: role.toLowerCase()
+      role: role.toLowerCase(),
     });
     // Determine if the user is an admin
     const isAdmin = role.toLowerCase() === "admin";
     // Save the user to the database
     await newUser.save();
-    ////create jwt token after user registered successfully.
-    jwt.sign({ userId: newUser._id }, process.env.secret_key, {
-      expiresIn: "1d",
-    });
+
     // Also save the login details
     await new LoginModel({
       email,
       password: hashedPassword,
-      isAdmin: isAdmin,
+      isAdmin: isAdmin
     }).save();
     // Send mail to the user with the randomly generated password
     // await sendMail(newUser.password, newUser.email);

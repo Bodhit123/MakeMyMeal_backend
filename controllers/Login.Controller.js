@@ -8,33 +8,56 @@ const LoginController = async (req, res) => {
   try {
     const { email, password } = req.body;
     // Find user by email
-    const user = await LoginModel.findOne({ email });
+    const foundUser = await LoginModel.findOne({ email });
 
-    if (!user) {
+    if (!foundUser) {
       console.log("User not found");
       return errorResponse(res, "Invalid email or password", 404);
     }
 
     // Compare passwords
-    const passwordMatch = await bcrypt.compare(password, user.password);
+    const passwordMatch = await bcrypt.compare(password, foundUser.password);
     if (!passwordMatch) {
       console.log("Password does not match");
       return errorResponse(res, "Invalid email or password", 401);
     }
 
     //only user with admin role can access
-    if (!user.isAdmin) {
+    if (!foundUser.isAdmin) {
       console.log("Admin only can login.");
       return errorResponse(res, "Admin Only Can Login", 409);
     }
 
     //create jwt token after user logged in successfully.
-    const token = jwt.sign({ userId: user._id }, process.env.jwt_secret_key, {
-      expiresIn: "1h",
-    });
+    const token = jwt.sign(
+      { userId: foundUser._id },
+      process.env.jwt_access_token_secret_key,
+      {
+        expiresIn: "2m",
+      }
+    );
 
+    const RefreshToken = jwt.sign(
+      { userId: foundUser._id },
+      process.env.jwt_refresh_token_secret_key,
+      {
+        expiresIn: "1d",
+      }
+    );
+
+    foundUser.refreshToken = RefreshToken;
+    await foundUser.save();
+
+    // Set refresh token as a cookie
+    res.cookie("refreshToken", RefreshToken, {
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000, //1 day
+      secure: false,
+      sameSite: "lax",
+      path: "/",
+    });
     // If passwords match, login successful
-    return successResponse(res, { user, token }, "Login successful");
+    return successResponse(res, { foundUser, token }, "Login successful");
   } catch (error) {
     // If an error occurs, send error response
     console.error("Error occurred during login:", error);
@@ -70,7 +93,7 @@ async function ChangeUserPassword(req, res) {
         "Password changed successfully",
         201
       );
-      console.log(req.user.email)
+      console.log(req.user.email);
       await sendMail(req.user.email, password);
     }
   } else {
@@ -79,13 +102,45 @@ async function ChangeUserPassword(req, res) {
   }
 }
 
-function Logout(req, res) {
-  res.cookie("token", null, { expires: new Date(0) }); // Set token cookie to null and expire immediately
+async function Logout(req, res) {
+  // res.cookie("token", null, { expires: new Date(0) }); // Set token cookie to null and expire immediately
   // Optionally, you may also clear any session or user data stored on the server side.
   // For example:
   // req.session.destroy(); // If using session-based authentication
   // Or clear any user data from the database, etc.
-  res.status(200).send("Logged out successfully");
+  // res.status(200).send("Logged out successfully");
+
+  const cookies = req.cookies;
+  if (!cookies?.refreshToken)
+    return successResponse(res, "logout successfully1", 204); //No content
+  //indicating there’s nothing to do since the user is already logged out.
+  const refreshToken = cookies.refreshToken;
+
+  // Is refreshToken in db?
+  const foundUser = await LoginModel.findOne({ refreshToken }).exec();
+  //If no match is found, the server assumes the user is not logged in or the refresh token is already invalid.
+  //In this case, it clears the jwt cookie on the client and responds with 204 No Content.
+  if (!foundUser) {
+    res.clearCookie("refreshToken", {
+      httpOnly: false,
+      secure: false,
+      sameSite: "lax",
+      path: "/",
+    });
+    return successResponse(res, "logout successfully2", 204);
+  }
+  //else delete refreshToken in db
+  foundUser.refreshToken = "";
+  foundUser.save();
+  //remove the cookie from client side(browser)
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
+    path: "/",
+  });
+  console.log("logout successfully");
+  return successResponse(res, "logout successfully3", 204);
 }
 
 module.exports = { LoginController, ChangeUserPassword, Logout };

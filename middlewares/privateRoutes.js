@@ -7,7 +7,7 @@ function PrivateRoutes(req, res, next) {
     errorResponse(res, "Access denied", 401);
   }
   try {
-    const decoded = jwt.verify(token, process.env.jwt_secret_key);
+    const decoded = jwt.verify(token, process.env.jwt_access_token_secret_key);
     req.userId = decoded.userId;
     next();
   } catch (error) {

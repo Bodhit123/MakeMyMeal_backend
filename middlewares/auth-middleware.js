@@ -10,7 +10,10 @@ var checkUserAuth = async (req, res, next) => {
   }
   const token = authorization.split(" ")[1];
   try {
-    const { userId } = jwt.verify(token, process.env.jwt_secret_key);
+    const { userId } = jwt.verify(
+      token,
+      process.env.jwt_access_token_secret_key
+    );
     const user = await LoginModel.findById(userId).select("-password");
 
     if (!user) {
@@ -18,9 +21,10 @@ var checkUserAuth = async (req, res, next) => {
     }
     req.user = user;
     next();
+    //if token is expired then it will throw an error of 403 and new token will be generated .
   } catch (error) {
     console.error(error.message);
-    return errorResponse(res, "Unauthorized User,token not verified", 401);
+    return errorResponse(res, "Unauthorized User,token not verified", 403);
   }
 };
 
