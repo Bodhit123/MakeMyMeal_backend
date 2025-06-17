@@ -71,10 +71,8 @@ const moment = require("moment");
 // };
 exports.getEmployeeBookings = async (req, res) => {
   const { dept, month, year } = req.query;
-  console.log(req.body)
-  console.log(req.query)
-  const { start, length, search, sortColumn, sortDirection } = req.body;
-  // console.log(req.body)
+  const { start, length, search, sortColumn, sortDirection, draw } = req.body;
+
   const query = { BookingPerson: "Employee" };
 
   if (year) {
@@ -108,45 +106,52 @@ exports.getEmployeeBookings = async (req, res) => {
         },
       },
     ];
-    // Add search logic
-    if(search){
-    if (search.value && search.value.trim() !== "") {
+
+    // ✅ Apply search if given
+    const searchTerm = search || "";
+    if (searchTerm && searchTerm.trim() !== "") {
       pipeline.push({
         $match: {
           $or: [
-            { "EmployeeDetails.emp_name": { $regex: search, $options: "i" } },
-            { "EmployeeDetails.dept_name": { $regex: search, $options: "i" } },
-            { BookingCategory: { $regex: search, $options: "i" } },
+            { "EmployeeDetails.emp_name": { $regex: searchTerm, $options: "i" } },
+            { "EmployeeDetails.dept_name": { $regex: searchTerm, $options: "i" } },
+            { BookingCategory: { $regex: searchTerm, $options: "i" } },
           ],
         },
       });
-    }}
-    
+    }
+
     if (dept && dept !== "All") {
       pipeline.push({ $match: { "EmployeeDetails.dept_name": dept } });
     }
-   
+
+    // ✅ Pagination and total count (filtered)
     pipeline.push({
       $facet: {
         paginatedResults: [
           ...(Object.keys(sortBy).length > 0 ? [{ $sort: sortBy }] : []),
           { $skip: parseInt(start || 0) },
-          { $limit: parseInt(length || 5) },
+          { $limit: parseInt(length || 10) },
         ],
-        totalCount: [{ $count: "count" }],
+        totalCount: [
+          { $count: "count" } // Total after filters, before pagination
+        ],
       },
     });
 
-    // console.log(pipeline)
     const results = await BookingModel.aggregate(pipeline);
+
     const paginatedResults = results[0]?.paginatedResults || [];
-    const totalRecords = results[0]?.totalCount[0]?.count || 0;
-    // console.log(results)
+    const filteredCount = results[0]?.totalCount[0]?.count || 0;
+
+    // ✅ Get full count for recordsTotal (before filtering)
+    const totalRecords = await BookingModel.countDocuments(query); // This count is unfiltered
+
     return res.json({
-      draw: req.body.draw,
-      recordsTotal: totalRecords, // Total records before filtering
-      recordsFiltered: totalRecords, // Total records after filtering (same as total if no search applied)
-      data: paginatedResults, // Data for the current page
+      draw,
+      recordsTotal: totalRecords,
+      recordsFiltered: filteredCount,
+      data: paginatedResults,
     });
   } catch (error) {
     console.error(error.message);
@@ -157,6 +162,7 @@ exports.getEmployeeBookings = async (req, res) => {
     );
   }
 };
+
 
 // exports.getRiseBookings = async (req, res) => {
 //   const { month, year } = req.query;
@@ -202,9 +208,11 @@ exports.getEmployeeBookings = async (req, res) => {
 
 exports.getRiseBookings = async (req, res) => {
   const { month, year } = req.query;
-  const { start, length, search, sortColumn, sortDirection } = req.body;
+  const { start, length, search, sortColumn, sortDirection, draw } = req.body;
+
   const query = { BookingPerson: "Rise" };
 
+  // Date range filters
   if (year) {
     const Year = moment(year, "YYYY");
     query["Dates.startDate"] = {
@@ -224,43 +232,49 @@ exports.getRiseBookings = async (req, res) => {
     sortBy[sortColumn] = sortDirection === "asc" ? 1 : -1;
   }
 
-  // Add search logic
-  if (search.value && search.value.trim() !== "") {
-    pipeline.push({
-      $match: {
-        $or: [
-          { BookingCategory: { $regex: search, $options: "i" } },
-          { Notes: { $regex: search, $options: "i" } },
-        ],
-      },
-    });
-  }
-
   try {
     const pipeline = [
       { $match: query },
-      {
-        $facet: {
-          paginatedResults: [
-            ...(Object.keys(sortBy).length > 0 ? [{ $sort: sortBy }] : []),
-            { $skip: parseInt(start || 0) },
-            { $limit: parseInt(length || 5) },
-          ],
-          totalCount: [{ $count: "count" }],
-        },
-      },
     ];
 
+    // ✅ Add search condition if provided
+    const searchTerm = search || "";
+    if (searchTerm.trim() !== "") {
+      pipeline.push({
+        $match: {
+          $or: [
+            { BookingCategory: { $regex: searchTerm, $options: "i" } },
+            { Notes: { $regex: searchTerm, $options: "i" } },
+          ],
+        },
+      });
+    }
+
+    // ✅ Pagination + filtered count
+    pipeline.push({
+      $facet: {
+        paginatedResults: [
+          ...(Object.keys(sortBy).length > 0 ? [{ $sort: sortBy }] : []),
+          { $skip: parseInt(start || 0) },
+          { $limit: parseInt(length || 10) },
+        ],
+        totalCount: [{ $count: "count" }], // count after filtering
+      },
+    });
+
     const results = await BookingModel.aggregate(pipeline);
+
     const paginatedResults = results[0]?.paginatedResults || [];
-    const totalRecords = results[0]?.totalCount[0]?.count || 0;
-    console.log(paginatedResults)
+    const filteredCount = results[0]?.totalCount[0]?.count || 0;
+
+    // ✅ Get full unfiltered total
+    const totalRecords = await BookingModel.countDocuments({ BookingPerson: "Rise" });
 
     return res.json({
-      draw: req.body.draw,
-      recordsTotal: totalRecords, // Total records before filtering
-      recordsFiltered: totalRecords, // Total records after filtering (same as total if no search applied)
-      data: paginatedResults, // Data for the current page
+      draw,
+      recordsTotal: totalRecords,       // total before any filters
+      recordsFiltered: filteredCount,   // total after search filters
+      data: paginatedResults,
     });
   } catch (error) {
     console.error(error.message);
@@ -271,6 +285,7 @@ exports.getRiseBookings = async (req, res) => {
     );
   }
 };
+
 
 exports.createBooking = async (req, res) => {
   try {

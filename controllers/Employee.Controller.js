@@ -47,6 +47,7 @@ const createNewEmployee = async (req, res) => {
 const updateEmployeeDetails = async (req, res) => {
   try {
     const { id } = req.params;
+   
     //find employee if exist or not
     const employee = await EmployeeModel.findById(id);
 
