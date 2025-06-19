@@ -76,19 +76,40 @@ exports.getEmployeeBookings = async (req, res) => {
   const query = { BookingPerson: "Employee" };
 
   if (year) {
-    const Year = moment(year, "YYYY");
-    query["Dates.startDate"] = {
-      $gte: Year.startOf("year").toDate(),
-      $lte: Year.endOf("year").toDate(),
-    };
+    let startDate = moment(year, "YYYY").startOf("year").toDate();
+    let endDate = moment(year, "YYYY").endOf("year").toDate();
 
-    if (month) {
-      const Month = moment(`${year}-${month}`, "YYYY-MMMM");
-      query["Dates.startDate"].$gte = Month.startOf("month").toDate();
-      query["Dates.startDate"].$lte = Month.endOf("month").toDate();
+    if (month && month.trim() !== "") {
+      const monthMoment = moment(`${year}-${month}`, "YYYY-MMMM");
+      startDate = monthMoment.startOf("month").toDate();
+      endDate = monthMoment.endOf("month").toDate();
     }
-  }
 
+    // Use $or to capture all 3 overlapping cases
+    query["$or"] = [
+      {
+        // Case 1: started before range, ended within range
+        "Dates.startDate": { $lt: startDate},
+        "Dates.endDate": { $gte: startDate, $lte: endDate},
+      },
+      {
+        // Case 2: started before range, ended after range (spans entire range)
+        "Dates.startDate": { $lt: startDate},
+        "Dates.endDate": { $gt: endDate},
+      },
+      {
+        // Case 3: started within range, ended after range
+        "Dates.startDate": { $gte: startDate, $lte: endDate},
+        "Dates.endDate": { $gt: endDate},
+      },
+      {
+        // Additional case: fully inside the range (optional, if needed)
+        "Dates.startDate": { $gte: startDate, $lte: endDate},
+        "Dates.endDate": { $gte: startDate, $lte: endDate},
+      },
+    ];
+  }
+  
   const sortBy = {};
   if (sortColumn && sortDirection) {
     sortBy[sortColumn] = sortDirection === "asc" ? 1 : -1;
@@ -113,8 +134,15 @@ exports.getEmployeeBookings = async (req, res) => {
       pipeline.push({
         $match: {
           $or: [
-            { "EmployeeDetails.emp_name": { $regex: searchTerm, $options: "i" } },
-            { "EmployeeDetails.dept_name": { $regex: searchTerm, $options: "i" } },
+            {
+              "EmployeeDetails.emp_name": { $regex: searchTerm, $options: "i" },
+            },
+            {
+              "EmployeeDetails.dept_name": {
+                $regex: searchTerm,
+                $options: "i",
+              },
+            },
             { BookingCategory: { $regex: searchTerm, $options: "i" } },
           ],
         },
@@ -134,7 +162,7 @@ exports.getEmployeeBookings = async (req, res) => {
           { $limit: parseInt(length || 10) },
         ],
         totalCount: [
-          { $count: "count" } // Total after filters, before pagination
+          { $count: "count" }, // Total after filters, before pagination
         ],
       },
     });
@@ -211,20 +239,39 @@ exports.getRiseBookings = async (req, res) => {
   const { start, length, search, sortColumn, sortDirection, draw } = req.body;
 
   const query = { BookingPerson: "Rise" };
-
-  // Date range filters
   if (year) {
-    const Year = moment(year, "YYYY");
-    query["Dates.startDate"] = {
-      $gte: Year.startOf("year").toDate(),
-      $lte: Year.endOf("year").toDate(),
-    };
+    let startDate = moment(year, "YYYY").startOf("year");
+    let endDate = moment(year, "YYYY").endOf("year");
 
-    if (month) {
-      const Month = moment(`${year}-${month}`, "YYYY-MMMM");
-      query["Dates.startDate"].$gte = Month.startOf("month").toDate();
-      query["Dates.startDate"].$lte = Month.endOf("month").toDate();
+    if (month && month.trim() !== "") {
+      const monthMoment = moment(`${year}-${month}`, "YYYY-MMMM");
+      startDate = monthMoment.startOf("month");
+      endDate = monthMoment.endOf("month");
     }
+
+    // Use $or to capture all 3 overlapping cases
+    query["$or"] = [
+      {
+        // Case 1: started before range, ended within range
+        "Dates.startDate": { $lt: startDate.toDate() },
+        "Dates.endDate": { $gte: startDate.toDate(), $lte: endDate.toDate() },
+      },
+      {
+        // Case 2: started before range, ended after range (spans entire range)
+        "Dates.startDate": { $lt: startDate.toDate() },
+        "Dates.endDate": { $gt: endDate.toDate() },
+      },
+      {
+        // Case 3: started within range, ended after range
+        "Dates.startDate": { $gte: startDate.toDate(), $lte: endDate.toDate() },
+        "Dates.endDate": { $gt: endDate.toDate() },
+      },
+      {
+        // Additional case: fully inside the range (optional, if needed)
+        "Dates.startDate": { $gte: startDate.toDate(), $lte: endDate.toDate() },
+        "Dates.endDate": { $gte: startDate.toDate(), $lte: endDate.toDate() },
+      },
+    ];
   }
 
   const sortBy = {};
@@ -233,9 +280,7 @@ exports.getRiseBookings = async (req, res) => {
   }
 
   try {
-    const pipeline = [
-      { $match: query },
-    ];
+    const pipeline = [{ $match: query }];
 
     // ✅ Add search condition if provided
     const searchTerm = search || "";
@@ -268,12 +313,14 @@ exports.getRiseBookings = async (req, res) => {
     const filteredCount = results[0]?.totalCount[0]?.count || 0;
 
     // ✅ Get full unfiltered total
-    const totalRecords = await BookingModel.countDocuments({ BookingPerson: "Rise" });
+    const totalRecords = await BookingModel.countDocuments({
+      BookingPerson: "Rise",
+    });
 
     return res.json({
       draw,
-      recordsTotal: totalRecords,       // total before any filters
-      recordsFiltered: filteredCount,   // total after search filters
+      recordsTotal: totalRecords, // total before any filters
+      recordsFiltered: filteredCount, // total after search filters
       data: paginatedResults,
     });
   } catch (error) {
