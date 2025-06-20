@@ -6,69 +6,6 @@ const {
 } = require("../utils/BookingDays");
 const moment = require("moment");
 
-// exports.getEmployeeBookings = async (req, res) => {
-//   const { dept, month, year } = req.query;
-//   const { start, length, search, sortColumn, sortDirection } = req.body;
-//   const perPage = length;
-//   const query = {};
-//   // console.log(req.cookies)
-
-//   query["BookingPerson"] = "Employee";
-//   if (year) {
-//     const Year = moment(year, "YYYY");
-//     query["Dates.startDate"] = {
-//       $gte: Year.startOf("year").toDate(),
-//       $lte: Year.endOf("year").toDate(),
-//     };
-//     if (month) {
-//       const Month = moment(`${year}-${month}`, "YYYY-MMMM");
-//       query["Dates.startDate"].$gte = Month.startOf("month").toDate();
-//       query["Dates.startDate"].$lte = Month.endOf("month").toDate();
-//     }
-//   }
-
-//   try {
-//     let pipeline = [
-//       {
-//         $match: query,
-//       },
-//       {
-//         $lookup: {
-//           from: "employee_details",
-//           localField: "Employee",
-//           foreignField: "_id",
-//           as: "EmployeeDetails",
-//         },
-//       },
-//     ];
-
-//     if (dept && dept !== "All") {
-//       pipeline.push({
-//         $match: { "EmployeeDetails.dept_name": dept },
-//       });
-//     }
-
-//     pipeline.push({
-//       $limit: perPage,
-//     });
-
-//     const fetchedBookingResults = await BookingModel.aggregate(pipeline);
-//     const totalResults = fetchedBookingResults.length;
-//     if (fetchedBookingResults.length > 0) {
-//       return successResponse(
-//         res,
-//         { totalResults, fetchedBookingResults },
-//         "Bookings retrieved successfully",
-//         200
-//       );
-//     } else {
-//       return errorResponse(res, "No data available.", 404);
-//     }
-//   } catch (error) {
-//     errorResponse(res, "Something went wrong while fetching bookings", 400);
-//     console.log(error.message);
-//   }
-// };
 exports.getEmployeeBookings = async (req, res) => {
   const { dept, month, year } = req.query;
   const { start, length, search, sortColumn, sortDirection, draw } = req.body;
@@ -89,27 +26,27 @@ exports.getEmployeeBookings = async (req, res) => {
     query["$or"] = [
       {
         // Case 1: started before range, ended within range
-        "Dates.startDate": { $lt: startDate},
-        "Dates.endDate": { $gte: startDate, $lte: endDate},
+        "Dates.startDate": { $lt: startDate },
+        "Dates.endDate": { $gte: startDate, $lte: endDate },
       },
       {
         // Case 2: started before range, ended after range (spans entire range)
-        "Dates.startDate": { $lt: startDate},
-        "Dates.endDate": { $gt: endDate},
+        "Dates.startDate": { $lt: startDate },
+        "Dates.endDate": { $gt: endDate },
       },
       {
         // Case 3: started within range, ended after range
-        "Dates.startDate": { $gte: startDate, $lte: endDate},
-        "Dates.endDate": { $gt: endDate},
+        "Dates.startDate": { $gte: startDate, $lte: endDate },
+        "Dates.endDate": { $gt: endDate },
       },
       {
         // Additional case: fully inside the range (optional, if needed)
-        "Dates.startDate": { $gte: startDate, $lte: endDate},
-        "Dates.endDate": { $gte: startDate, $lte: endDate},
+        "Dates.startDate": { $gte: startDate, $lte: endDate },
+        "Dates.endDate": { $gte: startDate, $lte: endDate },
       },
     ];
   }
-  
+
   const sortBy = {};
   if (sortColumn && sortDirection) {
     sortBy[sortColumn] = sortDirection === "asc" ? 1 : -1;
@@ -190,49 +127,6 @@ exports.getEmployeeBookings = async (req, res) => {
     );
   }
 };
-
-
-// exports.getRiseBookings = async (req, res) => {
-//   const { month, year } = req.query;
-//   const perPage = 6;
-//   let query = {
-//     BookingPerson: "Rise",
-//   };
-
-//   if (year) {
-//     const Year = moment(year, "YYYY");
-//     query["Dates.startDate"] = {
-//       $gte: Year.startOf("year").toDate(),
-//       $lte: Year.endOf("year").toDate(),
-//     };
-//     if (month) {
-//       const Month = moment(`${year}-${month}`, "YYYY-MMMM");
-//       query["Dates.startDate"].$gte = Month.startOf("month").toDate();
-//       query["Dates.startDate"].$lte = Month.endOf("month").toDate();
-//     }
-//   }
-//   // console.log(query);
-//   // console.log(req.query);
-//   try {
-//     const fetchedBookingResults = await BookingModel.find(query).limit(
-//       perPage * 5
-//     );
-//     const totalResults = fetchedBookingResults.length;
-//     if (fetchedBookingResults.length > 0) {
-//       return successResponse(
-//         res,
-//         { totalResults, fetchedBookingResults },
-//         "Bookings retrieved successfully",
-//         200
-//       );
-//     } else {
-//       return errorResponse(res, "No data available.", 404);
-//     }
-//   } catch (error) {
-//     errorResponse(res, "Something went wrong while fetching bookings", 400);
-//     console.log(error.message);
-//   }
-// };
 
 exports.getRiseBookings = async (req, res) => {
   const { month, year } = req.query;
@@ -333,7 +227,6 @@ exports.getRiseBookings = async (req, res) => {
   }
 };
 
-
 exports.createBooking = async (req, res) => {
   try {
     const {
@@ -429,51 +322,59 @@ exports.deleteBooking = async (req, res) => {
 
 exports.getTotalCounts = async (req, res) => {
   const { month, year } = req.query;
-  console.log(month, year);
-  // Initialize the query for the specified period
+  console.log("Fetching counts for:", month, year);
+
   let query = {};
   if (year && month) {
-    const startOfMonth = moment(`${year}-${month}`, "YYYY-MMMM")
+    const startDate = moment(`${year}-${month}`, "YYYY-MMMM")
       .startOf("month")
       .toDate();
-    const endOfMonth = moment(`${year}-${month}`, "YYYY-MMMM")
+    const endDate = moment(`${year}-${month}`, "YYYY-MMMM")
       .endOf("month")
       .toDate();
-    query["Dates.startDate"] = {
-      $gte: startOfMonth,
-      $lte: endOfMonth,
-    };
+
+    // Include bookings that overlap with the month range
+    query["$or"] = [
+      {
+        "Dates.startDate": { $lt: startDate },
+        "Dates.endDate": { $gte: startDate, $lte: endDate },
+      },
+      {
+        "Dates.startDate": { $lt: startDate },
+        "Dates.endDate": { $gt: endDate },
+      },
+      {
+        "Dates.startDate": { $gte: startDate, $lte: endDate },
+        "Dates.endDate": { $gt: endDate },
+      },
+      {
+        "Dates.startDate": { $gte: startDate, $lte: endDate },
+        "Dates.endDate": { $gte: startDate, $lte: endDate },
+      },
+    ];
   }
 
   try {
-    // Fetch the booking documents based on the constructed query
     const employeeBookings = await BookingModel.find({
       BookingPerson: "Employee",
       ...query,
     }).select("Dates MealCounts BookingPerson");
+
     const riseBookings = await BookingModel.find({
       BookingPerson: "Rise",
       ...query,
     }).select("Dates MealCounts BookingPerson");
+
     const othersBookings = await BookingModel.find({
       BookingPerson: "Others",
       ...query,
     }).select("Dates MealCounts BookingPerson");
-
-    // Calculate the total days for each category
-    let Counts = {
-      TotalEmployeeCount: calculateTotalDays(employeeBookings),
-      TotalRiseCount: calculateTotalDays(riseBookings),
-      TotalBufferCount: calculateTotalDays(othersBookings, true),
-    };
-
-    // console.log(employeeBookings);
-    // Respond with the counts
+    
     res
       .status(200)
-      .json({ Counts, employeeBookings, riseBookings, othersBookings });
+      .json({ employeeBookings, riseBookings, othersBookings });
   } catch (error) {
-    // Handle any errors that occur during the process
+    console.error("Error in getTotalCounts:", error);
     res.status(500).json({ error: "Failed to fetch counts" });
   }
 };
