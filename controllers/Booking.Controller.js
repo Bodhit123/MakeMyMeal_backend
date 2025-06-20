@@ -14,39 +14,40 @@ exports.getEmployeeBookings = async (req, res) => {
 
   if (year) {
     let startDate = moment(year, "YYYY").startOf("year").toDate();
-    let endDate = moment(year, "YYYY").endOf("year").toDate();
+    let endDate   = moment(year, "YYYY").endOf("year").toDate();
 
     if (month && month.trim() !== "") {
-      const monthMoment = moment(`${year}-${month}`, "YYYY-MMMM");
-      startDate = monthMoment.startOf("month").toDate();
-      endDate = monthMoment.endOf("month").toDate();
+      const m = moment(`${year}-${month}`, "YYYY-MMMM");
+      startDate = m.startOf("month").toDate();
+      endDate   = m.endOf("month").toDate();
     }
 
-    // Use $or to capture all 3 overlapping cases
+    // capture all overlap cases via $or
     query["$or"] = [
       {
-        // Case 1: started before range, ended within range
+        // starts before & ends inside
         "Dates.startDate": { $lt: startDate },
-        "Dates.endDate": { $gte: startDate, $lte: endDate },
+        "Dates.endDate":   { $gte: startDate, $lte: endDate },
       },
       {
-        // Case 2: started before range, ended after range (spans entire range)
+        // starts before & ends after
         "Dates.startDate": { $lt: startDate },
-        "Dates.endDate": { $gt: endDate },
+        "Dates.endDate":   { $gt: endDate },
       },
       {
-        // Case 3: started within range, ended after range
+        // starts inside & ends after
         "Dates.startDate": { $gte: startDate, $lte: endDate },
-        "Dates.endDate": { $gt: endDate },
+        "Dates.endDate":   { $gt: endDate },
       },
       {
-        // Additional case: fully inside the range (optional, if needed)
+        // fully inside
         "Dates.startDate": { $gte: startDate, $lte: endDate },
-        "Dates.endDate": { $gte: startDate, $lte: endDate },
+        "Dates.endDate":   { $gte: startDate, $lte: endDate },
       },
     ];
   }
 
+  // sorting
   const sortBy = {};
   if (sortColumn && sortDirection) {
     sortBy[sortColumn] = sortDirection === "asc" ? 1 : -1;
@@ -57,74 +58,62 @@ exports.getEmployeeBookings = async (req, res) => {
       { $match: query },
       {
         $lookup: {
-          from: "employee_details",
-          localField: "Employee",
+          from:         "employee_details",
+          localField:   "Employee",
           foreignField: "_id",
-          as: "EmployeeDetails",
-        },
+          as:           "EmployeeDetails",
+        }
       },
     ];
 
-    // ✅ Apply search if given
-    const searchTerm = search || "";
-    if (searchTerm && searchTerm.trim() !== "") {
+    // search
+    if (search?.trim()) {
       pipeline.push({
         $match: {
           $or: [
-            {
-              "EmployeeDetails.emp_name": { $regex: searchTerm, $options: "i" },
-            },
-            {
-              "EmployeeDetails.dept_name": {
-                $regex: searchTerm,
-                $options: "i",
-              },
-            },
-            { BookingCategory: { $regex: searchTerm, $options: "i" } },
-          ],
-        },
+            { "EmployeeDetails.emp_name": { $regex: search, $options: "i" } },
+            { "EmployeeDetails.dept_name": { $regex: search, $options: "i" } },
+            { BookingCategory:             { $regex: search, $options: "i" } },
+          ]
+        }
       });
     }
 
+    // department filter
     if (dept && dept !== "All") {
       pipeline.push({ $match: { "EmployeeDetails.dept_name": dept } });
     }
 
-    // ✅ Pagination and total count (filtered)
+    // facet for pagination + filtered count
     pipeline.push({
       $facet: {
         paginatedResults: [
-          ...(Object.keys(sortBy).length > 0 ? [{ $sort: sortBy }] : []),
-          { $skip: parseInt(start || 0) },
-          { $limit: parseInt(length || 10) },
+          ...(Object.keys(sortBy).length ? [{ $sort: sortBy }] : []),
+          { $skip:  parseInt(start  || 0, 10) },
+          { $limit: parseInt(length || 10, 10) },
         ],
         totalCount: [
-          { $count: "count" }, // Total after filters, before pagination
-        ],
-      },
+          { $count: "count" }
+        ]
+      }
     });
 
     const results = await BookingModel.aggregate(pipeline);
-
     const paginatedResults = results[0]?.paginatedResults || [];
-    const filteredCount = results[0]?.totalCount[0]?.count || 0;
+    const filteredCount    = results[0]?.totalCount[0]?.count || 0;
 
-    // ✅ Get full count for recordsTotal (before filtering)
-    const totalRecords = await BookingModel.countDocuments(query); // This count is unfiltered
+    const totalRecords = await BookingModel.countDocuments({ BookingPerson: "Employee" });
 
     return res.json({
       draw,
-      recordsTotal: totalRecords,
+      recordsTotal:    totalRecords,
       recordsFiltered: filteredCount,
-      data: paginatedResults,
+      data:            paginatedResults
     });
-  } catch (error) {
-    console.error(error.message);
-    return errorResponse(
-      res,
-      "Something went wrong while fetching bookings",
-      400
-    );
+
+  } catch (err) {
+    console.error(err);
+    return errorResponse(res, "Something went wrong while fetching bookings", 400);
   }
 };
 
@@ -133,37 +122,34 @@ exports.getRiseBookings = async (req, res) => {
   const { start, length, search, sortColumn, sortDirection, draw } = req.body;
 
   const query = { BookingPerson: "Rise" };
+
   if (year) {
-    let startDate = moment(year, "YYYY").startOf("year");
-    let endDate = moment(year, "YYYY").endOf("year");
+    let startDate = moment(year, "YYYY").startOf("year").toDate();
+    let endDate   = moment(year, "YYYY").endOf("year").toDate();
 
     if (month && month.trim() !== "") {
-      const monthMoment = moment(`${year}-${month}`, "YYYY-MMMM");
-      startDate = monthMoment.startOf("month");
-      endDate = monthMoment.endOf("month");
+      const m = moment(`${year}-${month}`, "YYYY-MMMM");
+      startDate = m.startOf("month").toDate();
+      endDate   = m.endOf("month").toDate();
     }
 
-    // Use $or to capture all 3 overlapping cases
+    // apply exact same $or overlap logic
     query["$or"] = [
       {
-        // Case 1: started before range, ended within range
-        "Dates.startDate": { $lt: startDate.toDate() },
-        "Dates.endDate": { $gte: startDate.toDate(), $lte: endDate.toDate() },
+        "Dates.startDate": { $lt: startDate },
+        "Dates.endDate":   { $gte: startDate, $lte: endDate },
       },
       {
-        // Case 2: started before range, ended after range (spans entire range)
-        "Dates.startDate": { $lt: startDate.toDate() },
-        "Dates.endDate": { $gt: endDate.toDate() },
+        "Dates.startDate": { $lt: startDate },
+        "Dates.endDate":   { $gt: endDate },
       },
       {
-        // Case 3: started within range, ended after range
-        "Dates.startDate": { $gte: startDate.toDate(), $lte: endDate.toDate() },
-        "Dates.endDate": { $gt: endDate.toDate() },
+        "Dates.startDate": { $gte: startDate, $lte: endDate },
+        "Dates.endDate":   { $gt: endDate },
       },
       {
-        // Additional case: fully inside the range (optional, if needed)
-        "Dates.startDate": { $gte: startDate.toDate(), $lte: endDate.toDate() },
-        "Dates.endDate": { $gte: startDate.toDate(), $lte: endDate.toDate() },
+        "Dates.startDate": { $gte: startDate, $lte: endDate },
+        "Dates.endDate":   { $gte: startDate, $lte: endDate },
       },
     ];
   }
@@ -176,56 +162,50 @@ exports.getRiseBookings = async (req, res) => {
   try {
     const pipeline = [{ $match: query }];
 
-    // ✅ Add search condition if provided
-    const searchTerm = search || "";
-    if (searchTerm.trim() !== "") {
+    if (search?.trim()) {
       pipeline.push({
         $match: {
           $or: [
-            { BookingCategory: { $regex: searchTerm, $options: "i" } },
-            { Notes: { $regex: searchTerm, $options: "i" } },
-          ],
-        },
+            { BookingCategory: { $regex: search, $options: "i" } },
+            { Notes:           { $regex: search, $options: "i" } },
+          ]
+        }
       });
     }
 
-    // ✅ Pagination + filtered count
     pipeline.push({
       $facet: {
         paginatedResults: [
-          ...(Object.keys(sortBy).length > 0 ? [{ $sort: sortBy }] : []),
-          { $skip: parseInt(start || 0) },
-          { $limit: parseInt(length || 10) },
+          ...(Object.keys(sortBy).length ? [{ $sort: sortBy }] : []),
+          { $skip:  parseInt(start  || 0,  10) },
+          { $limit: parseInt(length || 10, 10) },
         ],
-        totalCount: [{ $count: "count" }], // count after filtering
-      },
+        totalCount: [
+          { $count: "count" }
+        ]
+      }
     });
 
     const results = await BookingModel.aggregate(pipeline);
-
     const paginatedResults = results[0]?.paginatedResults || [];
-    const filteredCount = results[0]?.totalCount[0]?.count || 0;
+    const filteredCount    = results[0]?.totalCount[0]?.count || 0;
 
-    // ✅ Get full unfiltered total
-    const totalRecords = await BookingModel.countDocuments({
-      BookingPerson: "Rise",
-    });
+    const totalRecords = await BookingModel.countDocuments({ BookingPerson: "Rise" });
 
     return res.json({
       draw,
-      recordsTotal: totalRecords, // total before any filters
-      recordsFiltered: filteredCount, // total after search filters
-      data: paginatedResults,
+      recordsTotal:    totalRecords,
+      recordsFiltered: filteredCount,
+      data:            paginatedResults
     });
-  } catch (error) {
-    console.error(error.message);
-    return errorResponse(
-      res,
-      "Something went wrong while fetching bookings",
-      400
-    );
+
+  } catch (err) {
+    console.error(err);
+    return errorResponse(res, "Something went wrong while fetching bookings", 400);
   }
 };
+
+
 
 exports.createBooking = async (req, res) => {
   try {
